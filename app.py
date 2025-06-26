@@ -6,9 +6,10 @@ import io
 import csv
 import plotly.graph_objs as go
 import plotly
+import os
 
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'replace-this-with-a-secure-key'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'default-fallback-secret')
 app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///finance_tracker.db'
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
