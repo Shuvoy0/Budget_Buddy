@@ -3,4 +3,3 @@ flask_sqlalchemy
 werkzeug
 plotly
 fpdf
-gunicorn
