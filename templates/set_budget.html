@@ -1,9 +1,0 @@
-{% extends 'base.html' %}
-{% block content %}
-<h2>Set Budget</h2>
-<form method="POST">
-    <input type="number" name="amount" placeholder="Enter budget amount" step="0.01" required>
-    <button type="submit">Set Budget</button>
-</form>
-<p>Current budget: {{ budget }}</p>
-{% endblock %}

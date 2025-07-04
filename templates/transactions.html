@@ -1,32 +1,347 @@
 {% extends 'base.html' %}
-{% block content %}
-<h2>Transactions</h2>
-<form method="POST">
-    <input type="text" name="title" placeholder="Title" required>
-    <input type="number" name="amount" placeholder="Amount" step="0.01" required>
-    <input type="date" name="date" required>
-    <select name="category_id" required>
-        {% for cat in categories %}
-        <option value="{{ cat.id }}">{{ cat.name }}</option>
-        {% endfor %}
-    </select>
-    <button type="submit">Add Transaction</button>
-</form>
 
-<table>
-    <tr>
-        <th>Title</th>
-        <th>Amount</th>
-        <th>Date</th>
-        <th>Category</th>
-    </tr>
-    {% for t in transactions %}
-    <tr>
-        <td>{{ t.title }}</td>
-        <td>{{ t.amount }}</td>
-        <td>{{ t.date }}</td>
-        <td>{{ t.category.name if t.category else 'Unknown' }}</td>
-    </tr>
-    {% endfor %}
-</table>
+{% block title %}Transactions - Budget Buddy{% endblock %}
+{% block page_title %}Transactions{% endblock %}
+{% block page_subtitle %}Manage your income and expenses{% endblock %}
+
+{% block content %}
+<!-- Add Transaction Form -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-plus-circle"></i>
+            Add New Transaction
+        </h3>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('transactions') }}" id="transactionForm">
+            <div class="grid grid-2">
+                <div class="form-group">
+                    <label for="title" class="form-label">Title</label>
+                    <input type="text" id="title" name="title" class="form-input" required placeholder="Enter transaction title">
+                </div>
+
+                <div class="form-group">
+                    <label for="amount" class="form-label">Amount</label>
+                    <input type="number" id="amount" name="amount" class="form-input" required step="0.01" min="0" placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label for="transaction_type" class="form-label">Type</label>
+                    <select id="transaction_type" name="transaction_type" class="form-select" required>
+                        <option value="">Select type</option>
+                        <option value="income">Income</option>
+                        <option value="expense">Expense</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="date" class="form-label">Date</label>
+                    <input type="date" id="date" name="date" class="form-input" required value="{{ today or '' }}">
+                </div>
+
+                <div class="form-group">
+                    <label for="category_id" class="form-label">Category</label>
+                    <select id="category_id" name="category_id" class="form-select" required>
+                        <option value="">Select category</option>
+                        {% for category in categories %}
+                            <option value="{{ category.id }}" data-icon="{{ category.icon }}" data-color="{{ category.color }}">
+                                {{ category.icon }} {{ category.name }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="notes" class="form-label">Notes (Optional)</label>
+                    <input type="text" id="notes" name="notes" class="form-input" placeholder="Add notes...">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    Add Transaction
+                </button>
+                <button type="reset" class="btn btn-outline">
+                    <i class="fas fa-undo"></i>
+                    Reset
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Transactions List -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-list"></i>
+            Transaction History
+        </h3>
+        <div class="card-actions">
+            <button class="btn btn-outline btn-sm" onclick="toggleFilters()">
+                <i class="fas fa-filter"></i>
+                Filters
+            </button>
+        </div>
+    </div>
+
+    <!-- Filters (Hidden by default) -->
+    <div id="filters" class="card-body border-bottom" style="display: none;">
+        <div class="grid grid-3">
+            <div class="form-group">
+                <label class="form-label">Filter by Type</label>
+                <select id="typeFilter" class="form-select" onchange="filterTransactions()">
+                    <option value="">All Types</option>
+                    <option value="income">Income</option>
+                    <option value="expense">Expense</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Filter by Category</label>
+                <select id="categoryFilter" class="form-select" onchange="filterTransactions()">
+                    <option value="">All Categories</option>
+                    {% for category in categories %}
+                        <option value="{{ category.name }}">{{ category.icon }} {{ category.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Search</label>
+                <input type="text" id="searchFilter" class="form-input" placeholder="Search transactions..." onkeyup="filterTransactions()">
+            </div>
+        </div>
+    </div>
+
+    <div class="card-body">
+        {% if transactions %}
+            <div class="table-container">
+                <table class="table" id="transactionsTable">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Title</th>
+                            <th>Category</th>
+                            <th>Type</th>
+                            <th>Amount</th>
+                            <th>Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for transaction in transactions %}
+                            <tr class="transaction-row" 
+                                data-type="{{ transaction.transaction_type }}" 
+                                data-category="{{ categories | selectattr('id', 'equalto', transaction.category_id) | map(attribute='name') | first | default('Unknown') }}"
+                                data-title="{{ transaction.title.lower() }}"
+                                data-notes="{{ (transaction.notes or '').lower() }}">
+                                <td>{{ transaction.date.strftime('%b %d, %Y') }}</td>
+                                <td>
+                                    <div class="transaction-title">{{ transaction.title }}</div>
+                                </td>
+                                <td>
+                                    {% set category = categories | selectattr('id', 'equalto', transaction.category_id) | first %}
+                                    {% if category %}
+                                        <span class="category-badge">
+                                            <span class="category-color" style="background-color: {{ category.color }}"></span>
+                                            {{ category.icon }} {{ category.name }}
+                                        </span>
+                                    {% else %}
+                                        <span class="category-badge">
+                                            <span class="category-color" style="background-color: #6b7280"></span>
+                                            ❓ Unknown
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="transaction-type {{ transaction.transaction_type }}">
+                                        {{ transaction.transaction_type.title() }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="amount" style="color: {% if transaction.transaction_type == 'income' %}var(--success-color){% else %}var(--error-color){% endif %}">
+                                        {% if transaction.transaction_type == 'income' %}+{% else %}-{% endif %}${{ "%.2f"|format(transaction.amount) }}
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="text-sm text-gray">{{ transaction.notes or '-' }}</span>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-receipt" style="font-size: 4rem; color: var(--text-gray); margin-bottom: 1rem;"></i>
+                <h3 class="text-xl font-bold mb-2">No Transactions Yet</h3>
+                <p class="text-gray mb-4">Start by adding your first transaction above!</p>
+                <button class="btn btn-primary" onclick="document.getElementById('title').focus()">
+                    <i class="fas fa-plus"></i>
+                    Add Your First Transaction
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .card-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .category-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.25rem 0.75rem;
+        background: var(--light-secondary);
+        border-radius: 9999px;
+        font-size: 0.875rem;
+        font-weight: 500;
+    }
+
+    .transaction-title {
+        font-weight: 600;
+        color: var(--text-dark);
+    }
+
+    .amount {
+        font-weight: 700;
+        font-size: 1rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+    }
+
+    .text-gray {
+        color: var(--text-gray);
+    }
+
+    /* Form enhancements */
+    #transactionForm .form-input:focus,
+    #transactionForm .form-select:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }
+
+    /* Filter section */
+    #filters {
+        background: var(--light-secondary);
+    }
+
+    /* Animation for form submission */
+    .form-submitting {
+        opacity: 0.7;
+        pointer-events: none;
+    }
+</style>
+
+<script>
+    // Set today's date as default
+    document.getElementById('date').value = new Date().toISOString().split('T')[0];
+
+    // Form validation and enhancement
+    document.getElementById('transactionForm').addEventListener('submit', function(e) {
+        const amount = document.getElementById('amount').value;
+        if (parseFloat(amount) <= 0) {
+            e.preventDefault();
+            alert('Amount must be greater than 0');
+            return;
+        }
+        
+        // Add loading state
+        this.classList.add('form-submitting');
+        const submitBtn = this.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Adding...';
+        
+        // Reset if form fails to submit
+        setTimeout(() => {
+            this.classList.remove('form-submitting');
+            submitBtn.innerHTML = originalText;
+        }, 5000);
+    });
+
+    // Toggle filters
+    function toggleFilters() {
+        const filters = document.getElementById('filters');
+        filters.style.display = filters.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // Filter transactions
+    function filterTransactions() {
+        const typeFilter = document.getElementById('typeFilter').value.toLowerCase();
+        const categoryFilter = document.getElementById('categoryFilter').value.toLowerCase();
+        const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
+        const rows = document.querySelectorAll('.transaction-row');
+
+        rows.forEach(row => {
+            const type = row.dataset.type;
+            const category = row.dataset.category.toLowerCase();
+            const title = row.dataset.title;
+            const notes = row.dataset.notes;
+
+            const matchesType = !typeFilter || type === typeFilter;
+            const matchesCategory = !categoryFilter || category.includes(categoryFilter);
+            const matchesSearch = !searchFilter || 
+                title.includes(searchFilter) || 
+                notes.includes(searchFilter) ||
+                category.includes(searchFilter);
+
+            if (matchesType && matchesCategory && matchesSearch) {
+                row.style.display = '';
+            } else {
+                row.style.display = 'none';
+            }
+        });
+
+        // Show/hide empty state if no results
+        const visibleRows = document.querySelectorAll('.transaction-row[style=""]').length;
+        const tableContainer = document.querySelector('.table-container');
+        
+        if (visibleRows === 0 && (typeFilter || categoryFilter || searchFilter)) {
+            if (!document.getElementById('noResults')) {
+                const noResults = document.createElement('div');
+                noResults.id = 'noResults';
+                noResults.className = 'empty-state';
+                noResults.innerHTML = `
+                    <i class="fas fa-search" style="font-size: 3rem; color: var(--text-gray); margin-bottom: 1rem;"></i>
+                    <h3 class="text-xl font-bold mb-2">No Results Found</h3>
+                    <p class="text-gray">Try adjusting your filters or search terms.</p>
+                `;
+                tableContainer.parentNode.appendChild(noResults);
+            }
+            tableContainer.style.display = 'none';
+        } else {
+            tableContainer.style.display = 'block';
+            const noResults = document.getElementById('noResults');
+            if (noResults) {
+                noResults.remove();
+            }
+        }
+    }
+
+    // Auto-focus on form after page load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Add smooth scroll to form if there are existing transactions
+        const transactionsExist = {{ 'true' if transactions else 'false' }};
+        if (!transactionsExist) {
+            document.getElementById('title').focus();
+        }
+    });
+
+    // Format amount input
+    document.getElementById('amount').addEventListener('input', function(e) {
+        const value = parseFloat(e.target.value);
+        if (value && value > 0) {
+            e.target.style.borderColor = 'var(--success-color)';
+        } else {
+            e.target.style.borderColor = '';
+        }
+    });
+</script>
 {% endblock %}

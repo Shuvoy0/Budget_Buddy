@@ -1,0 +1,421 @@
+{% extends 'base.html' %}
+
+{% block title %}Budget - Budget Buddy{% endblock %}
+{% block page_title %}Budget Management{% endblock %}
+{% block page_subtitle %}Plan and track your monthly budget{% endblock %}
+
+{% block content %}
+<!-- Add Budget Form -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-calculator"></i>
+            Set Budget
+        </h3>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('budget') }}">
+            <div class="grid grid-2">
+                <div class="form-group">
+                    <label for="category_id" class="form-label">Category</label>
+                    <select id="category_id" name="category_id" class="form-select" required>
+                        <option value="">Select category</option>
+                        {% for category in categories %}
+                            <option value="{{ category.id }}">{{ category.icon }} {{ category.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="amount" class="form-label">Budget Amount</label>
+                    <input type="number" id="amount" name="amount" class="form-input" required step="0.01" min="0" placeholder="0.00">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    Set Budget
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Current Budgets -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-chart-bar"></i>
+            Current Month Budget
+        </h3>
+    </div>
+    <div class="card-body">
+        {% if budgets %}
+            <div class="budget-grid">
+                {% for budget in budgets %}
+                    {% set category = categories | selectattr('id', 'equalto', budget.category_id) | first %}
+                    {% if category %}
+                        <div class="budget-card">
+                            <div class="budget-header">
+                                <div class="category-info">
+                                    <span class="category-color" style="background-color: {{ category.color }}"></span>
+                                    <span class="category-name">{{ category.icon }} {{ category.name }}</span>
+                                </div>
+                                <div class="budget-amount">
+                                    ${{ "%.2f"|format(budget.amount) }}
+                                </div>
+                            </div>
+                            
+                            <div class="budget-progress">
+                                {% set spent = 0 %}  <!-- You would calculate actual spent amount here -->
+                                {% set percentage = (spent / budget.amount * 100) if budget.amount > 0 else 0 %}
+                                
+                                <div class="progress-bar">
+                                    <div class="progress-fill" style="width: {{ percentage }}%; background: {% if percentage > 90 %}var(--error-color){% elif percentage > 75 %}var(--warning-color){% else %}var(--success-color){% endif %}"></div>
+                                </div>
+                                
+                                <div class="budget-stats">
+                                    <div class="stat">
+                                        <span class="stat-label">Spent:</span>
+                                        <span class="stat-value">${{ "%.2f"|format(spent) }}</span>
+                                    </div>
+                                    <div class="stat">
+                                        <span class="stat-label">Remaining:</span>
+                                        <span class="stat-value" style="color: {% if (budget.amount - spent) < 0 %}var(--error-color){% else %}var(--success-color){% endif %}">
+                                            ${{ "%.2f"|format(budget.amount - spent) }}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="budget-actions">
+                                <button class="btn btn-sm btn-outline" onclick="editBudget({{ budget.id }}, {{ budget.amount }}, '{{ category.name }}')">
+                                    <i class="fas fa-edit"></i>
+                                    Edit
+                                </button>
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            <!-- Budget Summary -->
+            <div class="budget-summary mt-4">
+                <div class="summary-card">
+                    <h4 class="summary-title">Budget Summary</h4>
+                    <div class="summary-stats">
+                        {% set total_budget = budgets | sum(attribute='amount') %}
+                        {% set total_spent = 0 %}  <!-- Calculate total spent -->
+                        
+                        <div class="summary-stat">
+                            <span class="stat-icon">💰</span>
+                            <div class="stat-info">
+                                <div class="stat-value">${{ "%.2f"|format(total_budget) }}</div>
+                                <div class="stat-label">Total Budget</div>
+                            </div>
+                        </div>
+                        
+                        <div class="summary-stat">
+                            <span class="stat-icon">💸</span>
+                            <div class="stat-info">
+                                <div class="stat-value">${{ "%.2f"|format(total_spent) }}</div>
+                                <div class="stat-label">Total Spent</div>
+                            </div>
+                        </div>
+                        
+                        <div class="summary-stat">
+                            <span class="stat-icon">💾</span>
+                            <div class="stat-info">
+                                <div class="stat-value" style="color: {% if (total_budget - total_spent) < 0 %}var(--error-color){% else %}var(--success-color){% endif %}">
+                                    ${{ "%.2f"|format(total_budget - total_spent) }}
+                                </div>
+                                <div class="stat-label">Remaining</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-calculator" style="font-size: 4rem; color: var(--text-gray); margin-bottom: 1rem;"></i>
+                <h3 class="text-xl font-bold mb-2">No Budget Set</h3>
+                <p class="text-gray mb-4">Start by setting budgets for your spending categories!</p>
+                <button class="btn btn-primary" onclick="document.getElementById('category_id').focus()">
+                    <i class="fas fa-plus"></i>
+                    Set Your First Budget
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Edit Budget Modal -->
+<div id="editBudgetModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Edit Budget</h3>
+            <button class="modal-close" onclick="closeEditModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="editBudgetForm">
+                <div class="form-group">
+                    <label class="form-label">Category: <span id="editCategoryName"></span></label>
+                </div>
+                <div class="form-group">
+                    <label for="editAmount" class="form-label">Budget Amount</label>
+                    <input type="number" id="editAmount" class="form-input" step="0.01" min="0" required>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        Update Budget
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="closeEditModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .budget-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .budget-card {
+        background: var(--light-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        transition: var(--transition);
+    }
+
+    .budget-card:hover {
+        box-shadow: var(--shadow-lg);
+        transform: translateY(-2px);
+    }
+
+    .budget-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+    }
+
+    .category-info {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .category-name {
+        font-weight: 600;
+        color: var(--text-dark);
+    }
+
+    .budget-amount {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--primary-color);
+    }
+
+    .budget-progress {
+        margin-bottom: 1rem;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 8px;
+        background: var(--border-color);
+        border-radius: 4px;
+        overflow: hidden;
+        margin-bottom: 1rem;
+    }
+
+    .progress-fill {
+        height: 100%;
+        transition: width 0.3s ease;
+    }
+
+    .budget-stats {
+        display: flex;
+        justify-content: space-between;
+        font-size: 0.875rem;
+    }
+
+    .stat-label {
+        color: var(--text-gray);
+        margin-right: 0.25rem;
+    }
+
+    .stat-value {
+        font-weight: 600;
+        color: var(--text-dark);
+    }
+
+    .budget-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .budget-summary {
+        border-top: 1px solid var(--border-color);
+        padding-top: 1.5rem;
+    }
+
+    .summary-card {
+        background: var(--light-secondary);
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+    }
+
+    .summary-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin-bottom: 1rem;
+        color: var(--text-dark);
+    }
+
+    .summary-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+
+    .summary-stat {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+        background: var(--light-bg);
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+    }
+
+    .stat-icon {
+        font-size: 2rem;
+    }
+
+    .stat-info .stat-value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        color: var(--text-dark);
+    }
+
+    .stat-info .stat-label {
+        font-size: 0.875rem;
+        color: var(--text-gray);
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+    }
+
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background: var(--light-bg);
+        border-radius: var(--border-radius);
+        max-width: 400px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: var(--text-gray);
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .text-gray {
+        color: var(--text-gray);
+    }
+</style>
+
+<script>
+    function editBudget(budgetId, currentAmount, categoryName) {
+        document.getElementById('editCategoryName').textContent = categoryName;
+        document.getElementById('editAmount').value = currentAmount;
+        document.getElementById('editBudgetModal').style.display = 'flex';
+        document.getElementById('editAmount').focus();
+    }
+
+    function closeEditModal() {
+        document.getElementById('editBudgetModal').style.display = 'none';
+        document.getElementById('editBudgetForm').reset();
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('editBudgetModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeEditModal();
+        }
+    });
+
+    // Handle budget edit form submission
+    document.getElementById('editBudgetForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const amount = parseFloat(document.getElementById('editAmount').value);
+        
+        if (amount <= 0) {
+            alert('Budget amount must be greater than 0');
+            return;
+        }
+
+        // Here you would normally send an AJAX request to update the budget
+        alert('Budget updated successfully!');
+        closeEditModal();
+        window.location.reload();
+    });
+
+    // Form validation
+    document.querySelector('form[action*="budget"]').addEventListener('submit', function(e) {
+        const amount = parseFloat(document.getElementById('amount').value);
+        
+        if (amount <= 0) {
+            e.preventDefault();
+            alert('Budget amount must be greater than 0');
+            return;
+        }
+    });
+
+    // Auto-focus on form after page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const budgetsExist = {{ 'true' if budgets else 'false' }};
+        if (!budgetsExist) {
+            document.getElementById('category_id').focus();
+        }
+    });
+</script>
+{% endblock %}

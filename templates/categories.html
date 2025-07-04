@@ -1,14 +1,319 @@
 {% extends 'base.html' %}
-{% block content %}
-<h2>Categories</h2>
-<form method="POST">
-    <input type="text" name="name" placeholder="Category Name" required>
-    <button type="submit">Add Category</button>
-</form>
 
-<ul>
-{% for cat in categories %}
-    <li>{{ cat.name }}</li>
-{% endfor %}
-</ul>
+{% block title %}Categories - Budget Buddy{% endblock %}
+{% block page_title %}Categories{% endblock %}
+{% block page_subtitle %}Organize your transactions with custom categories{% endblock %}
+
+{% block content %}
+<!-- Add Category Form -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-plus-circle"></i>
+            Add New Category
+        </h3>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('categories') }}" id="categoryForm">
+            <div class="grid grid-3">
+                <div class="form-group">
+                    <label for="name" class="form-label">Category Name</label>
+                    <input type="text" id="name" name="name" class="form-input" required placeholder="Enter category name">
+                </div>
+
+                <div class="form-group">
+                    <label for="color" class="form-label">Color</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="color" name="color" class="color-input" value="#3498db">
+                        <div class="color-presets">
+                            <button type="button" class="color-preset" style="background: #e74c3c" onclick="setColor('#e74c3c')"></button>
+                            <button type="button" class="color-preset" style="background: #3498db" onclick="setColor('#3498db')"></button>
+                            <button type="button" class="color-preset" style="background: #2ecc71" onclick="setColor('#2ecc71')"></button>
+                            <button type="button" class="color-preset" style="background: #f39c12" onclick="setColor('#f39c12')"></button>
+                            <button type="button" class="color-preset" style="background: #9b59b6" onclick="setColor('#9b59b6')"></button>
+                            <button type="button" class="color-preset" style="background: #1abc9c" onclick="setColor('#1abc9c')"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="icon" class="form-label">Icon</label>
+                    <div class="icon-picker-container">
+                        <input type="text" id="icon" name="icon" class="form-input" value="💰" readonly onclick="toggleIconPicker()">
+                        <div id="iconPicker" class="icon-picker" style="display: none;">
+                            <div class="icon-grid">
+                                <button type="button" class="icon-option" onclick="selectIcon('🍽️')">🍽️</button>
+                                <button type="button" class="icon-option" onclick="selectIcon('🚗')">🚗</button>
+                                <button type="button" class="icon-option" onclick="selectIcon('🛍️')">🛍️</button>
+                                <button type="button" class="icon-option" onclick="selectIcon('🎬')">🎬</button>
+                                <button type="button" class="icon-option" onclick="selectIcon('💡')">💡</button>
+                                <button type="button" class="icon-option" onclick="selectIcon('🏥')">🏥</button>
+                                <button type="button" class="icon-option" onclick="selectIcon('💰')">💰</button>
+                                <button type="button" class="icon-option" onclick="selectIcon('💎')">💎</button>
+                                <button type="button" class="icon-option" onclick="selectIcon('🏠')">🏠</button>
+                                <button type="button" class="icon-option" onclick="selectIcon('📱')">📱</button>
+                                <button type="button" class="icon-option" onclick="selectIcon('⛽')">⛽</button>
+                                <button type="button" class="icon-option" onclick="selectIcon('🎓')">🎓</button>
+                                <button type="button" class="icon-option" onclick="selectIcon('✈️')">✈️</button>
+                                <button type="button" class="icon-option" onclick="selectIcon('🎮')">🎮</button>
+                                <button type="button" class="icon-option" onclick="selectIcon('👕')">👕</button>
+                                <button type="button" class="icon-option" onclick="selectIcon('📚')">📚</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <div class="category-preview">
+                    <span class="category-badge">
+                        <span class="category-color" id="previewColor" style="background-color: #3498db"></span>
+                        <span id="previewIcon">💰</span>
+                        <span id="previewName">Category Preview</span>
+                    </span>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    Add Category
+                </button>
+                <button type="reset" class="btn btn-outline">
+                    <i class="fas fa-undo"></i>
+                    Reset
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Categories List -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-tags"></i>
+            Your Categories
+        </h3>
+    </div>
+    <div class="card-body">
+        {% if categories %}
+            <div class="categories-grid">
+                {% for category in categories %}
+                    <div class="category-card">
+                        <div class="category-header">
+                            <span class="category-badge">
+                                <span class="category-color" style="background-color: {{ category.color }}"></span>
+                                {{ category.icon }} {{ category.name }}
+                            </span>
+                        </div>
+                        <div class="category-stats">
+                            <!-- You can add transaction count or total spending here -->
+                            <small class="text-gray">Click to view transactions</small>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-tags" style="font-size: 4rem; color: var(--text-gray); margin-bottom: 1rem;"></i>
+                <h3 class="text-xl font-bold mb-2">No Categories Yet</h3>
+                <p class="text-gray mb-4">Create your first category to organize your transactions!</p>
+                <button class="btn btn-primary" onclick="document.getElementById('name').focus()">
+                    <i class="fas fa-plus"></i>
+                    Create Your First Category
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<style>
+    .color-picker-container {
+        position: relative;
+    }
+
+    .color-input {
+        width: 100%;
+        height: 3rem;
+        border: 2px solid var(--border-color);
+        border-radius: var(--border-radius);
+        cursor: pointer;
+    }
+
+    .color-presets {
+        display: flex;
+        gap: 0.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .color-preset {
+        width: 2rem;
+        height: 2rem;
+        border: 2px solid var(--border-color);
+        border-radius: 50%;
+        cursor: pointer;
+        transition: var(--transition);
+    }
+
+    .color-preset:hover {
+        transform: scale(1.1);
+        border-color: var(--primary-color);
+    }
+
+    .icon-picker-container {
+        position: relative;
+    }
+
+    .icon-picker {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: var(--light-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        box-shadow: var(--shadow-lg);
+        z-index: 10;
+        padding: 1rem;
+        margin-top: 0.5rem;
+    }
+
+    .icon-grid {
+        display: grid;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 0.5rem;
+    }
+
+    .icon-option {
+        width: 2.5rem;
+        height: 2.5rem;
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        background: var(--light-bg);
+        font-size: 1.25rem;
+        cursor: pointer;
+        transition: var(--transition);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .icon-option:hover {
+        background: var(--primary-color);
+        border-color: var(--primary-color);
+        transform: scale(1.1);
+    }
+
+    .category-preview {
+        padding: 1rem;
+        background: var(--light-secondary);
+        border-radius: var(--border-radius);
+        border: 1px solid var(--border-color);
+    }
+
+    .category-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: var(--light-bg);
+        border-radius: 9999px;
+        font-weight: 500;
+        border: 1px solid var(--border-color);
+    }
+
+    .categories-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .category-card {
+        background: var(--light-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        transition: var(--transition);
+        cursor: pointer;
+    }
+
+    .category-card:hover {
+        box-shadow: var(--shadow-lg);
+        transform: translateY(-2px);
+    }
+
+    .category-header {
+        margin-bottom: 0.5rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+    }
+
+    .text-gray {
+        color: var(--text-gray);
+    }
+</style>
+
+<script>
+    // Set color picker
+    function setColor(color) {
+        document.getElementById('color').value = color;
+        document.getElementById('previewColor').style.backgroundColor = color;
+    }
+
+    // Toggle icon picker
+    function toggleIconPicker() {
+        const picker = document.getElementById('iconPicker');
+        picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+    }
+
+    // Select icon
+    function selectIcon(icon) {
+        document.getElementById('icon').value = icon;
+        document.getElementById('previewIcon').textContent = icon;
+        document.getElementById('iconPicker').style.display = 'none';
+    }
+
+    // Update preview when name changes
+    document.getElementById('name').addEventListener('input', function(e) {
+        const preview = document.getElementById('previewName');
+        preview.textContent = e.target.value || 'Category Preview';
+    });
+
+    // Update preview when color changes
+    document.getElementById('color').addEventListener('change', function(e) {
+        document.getElementById('previewColor').style.backgroundColor = e.target.value;
+    });
+
+    // Close icon picker when clicking outside
+    document.addEventListener('click', function(event) {
+        const picker = document.getElementById('iconPicker');
+        const container = document.querySelector('.icon-picker-container');
+        
+        if (!container.contains(event.target)) {
+            picker.style.display = 'none';
+        }
+    });
+
+    // Form validation
+    document.getElementById('categoryForm').addEventListener('submit', function(e) {
+        const name = document.getElementById('name').value.trim();
+        if (name.length < 2) {
+            e.preventDefault();
+            alert('Category name must be at least 2 characters long');
+            return;
+        }
+    });
+
+    // Auto-focus on form after page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const categoriesExist = {{ 'true' if categories else 'false' }};
+        if (!categoriesExist) {
+            document.getElementById('name').focus();
+        }
+    });
+</script>
 {% endblock %}

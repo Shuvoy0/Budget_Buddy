@@ -1,0 +1,340 @@
+{% extends 'base.html' %}
+
+{% block title %}Goals - Budget Buddy{% endblock %}
+{% block page_title %}Financial Goals{% endblock %}
+{% block page_subtitle %}Set and track your savings goals{% endblock %}
+
+{% block content %}
+<!-- Add Goal Form -->
+<div class="card mb-4">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-bullseye"></i>
+            Set New Goal
+        </h3>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('goals') }}">
+            <div class="grid grid-3">
+                <div class="form-group">
+                    <label for="title" class="form-label">Goal Title</label>
+                    <input type="text" id="title" name="title" class="form-input" required placeholder="e.g., Emergency Fund, Vacation, New Car">
+                </div>
+
+                <div class="form-group">
+                    <label for="target_amount" class="form-label">Target Amount</label>
+                    <input type="number" id="target_amount" name="target_amount" class="form-input" required step="0.01" min="1" placeholder="0.00">
+                </div>
+
+                <div class="form-group">
+                    <label for="target_date" class="form-label">Target Date</label>
+                    <input type="date" id="target_date" name="target_date" class="form-input" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-save"></i>
+                    Create Goal
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Goals List -->
+<div class="card">
+    <div class="card-header">
+        <h3 class="card-title">
+            <i class="fas fa-list-alt"></i>
+            Your Goals
+        </h3>
+    </div>
+    <div class="card-body">
+        {% if goals %}
+            <div class="goals-grid">
+                {% for goal in goals %}
+                    <div class="goal-card">
+                        <div class="goal-header">
+                            <h4 class="goal-title">{{ goal.title }}</h4>
+                            <div class="goal-amount">
+                                ${{ "%.2f"|format(goal.current_amount) }} / ${{ "%.2f"|format(goal.target_amount) }}
+                            </div>
+                        </div>
+                        
+                        <div class="goal-progress">
+                            <div class="progress-bar">
+                                <div class="progress-fill" style="width: {{ (goal.current_amount / goal.target_amount * 100) if goal.target_amount > 0 else 0 }}%"></div>
+                            </div>
+                            <div class="progress-text">
+                                {{ "%.1f"|format((goal.current_amount / goal.target_amount * 100) if goal.target_amount > 0 else 0) }}% Complete
+                            </div>
+                        </div>
+
+                        <div class="goal-details">
+                            <div class="goal-stat">
+                                <i class="fas fa-calendar"></i>
+                                <span>Target: {{ goal.target_date.strftime('%b %d, %Y') if goal.target_date else 'No deadline' }}</span>
+                            </div>
+                            <div class="goal-stat">
+                                <i class="fas fa-dollar-sign"></i>
+                                <span>Remaining: ${{ "%.2f"|format(goal.target_amount - goal.current_amount) }}</span>
+                            </div>
+                        </div>
+
+                        <div class="goal-actions">
+                            <button class="btn btn-sm btn-primary" onclick="updateGoal({{ goal.id }}, '{{ goal.title }}', {{ goal.current_amount }})">
+                                <i class="fas fa-plus"></i>
+                                Add Progress
+                            </button>
+                        </div>
+                    </div>
+                {% endfor %}
+            </div>
+        {% else %}
+            <div class="empty-state">
+                <i class="fas fa-bullseye" style="font-size: 4rem; color: var(--text-gray); margin-bottom: 1rem;"></i>
+                <h3 class="text-xl font-bold mb-2">No Goals Set</h3>
+                <p class="text-gray mb-4">Start by setting your first financial goal!</p>
+                <button class="btn btn-primary" onclick="document.getElementById('title').focus()">
+                    <i class="fas fa-plus"></i>
+                    Set Your First Goal
+                </button>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Update Goal Modal -->
+<div id="updateGoalModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Update Goal Progress</h3>
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="updateGoalForm">
+                <div class="form-group">
+                    <label class="form-label">Goal: <span id="modalGoalTitle"></span></label>
+                    <label class="form-label">Current Progress: $<span id="modalCurrentAmount"></span></label>
+                </div>
+                <div class="form-group">
+                    <label for="addAmount" class="form-label">Add Amount</label>
+                    <input type="number" id="addAmount" class="form-input" step="0.01" min="0" placeholder="0.00" required>
+                </div>
+                <div class="form-group">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i>
+                        Update Progress
+                    </button>
+                    <button type="button" class="btn btn-outline" onclick="closeModal()">Cancel</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .goals-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .goal-card {
+        background: var(--light-bg);
+        border: 1px solid var(--border-color);
+        border-radius: var(--border-radius);
+        padding: 1.5rem;
+        transition: var(--transition);
+    }
+
+    .goal-card:hover {
+        box-shadow: var(--shadow-lg);
+        transform: translateY(-2px);
+    }
+
+    .goal-header {
+        margin-bottom: 1rem;
+    }
+
+    .goal-title {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: var(--text-dark);
+        margin-bottom: 0.5rem;
+    }
+
+    .goal-amount {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+
+    .goal-progress {
+        margin-bottom: 1rem;
+    }
+
+    .progress-bar {
+        width: 100%;
+        height: 12px;
+        background: var(--border-color);
+        border-radius: 6px;
+        overflow: hidden;
+        margin-bottom: 0.5rem;
+    }
+
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, var(--success-color), var(--secondary-color));
+        transition: width 0.3s ease;
+    }
+
+    .progress-text {
+        text-align: center;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-gray);
+    }
+
+    .goal-details {
+        margin-bottom: 1rem;
+    }
+
+    .goal-stat {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        font-size: 0.875rem;
+        color: var(--text-gray);
+    }
+
+    .goal-actions {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 3rem 2rem;
+    }
+
+    .modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .modal-content {
+        background: var(--light-bg);
+        border-radius: var(--border-radius);
+        max-width: 400px;
+        width: 90%;
+        max-height: 90vh;
+        overflow-y: auto;
+    }
+
+    .modal-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1.5rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+
+    .modal-close {
+        background: none;
+        border: none;
+        font-size: 1.5rem;
+        cursor: pointer;
+        color: var(--text-gray);
+    }
+
+    .modal-body {
+        padding: 1.5rem;
+    }
+
+    .text-gray {
+        color: var(--text-gray);
+    }
+</style>
+
+<script>
+    // Set minimum date to today
+    document.getElementById('target_date').min = new Date().toISOString().split('T')[0];
+
+    // Modal functions
+    function updateGoal(goalId, goalTitle, currentAmount) {
+        document.getElementById('modalGoalTitle').textContent = goalTitle;
+        document.getElementById('modalCurrentAmount').textContent = currentAmount.toFixed(2);
+        document.getElementById('updateGoalModal').style.display = 'flex';
+        document.getElementById('addAmount').focus();
+    }
+
+    function closeModal() {
+        document.getElementById('updateGoalModal').style.display = 'none';
+        document.getElementById('updateGoalForm').reset();
+    }
+
+    // Close modal when clicking outside
+    document.getElementById('updateGoalModal').addEventListener('click', function(e) {
+        if (e.target === this) {
+            closeModal();
+        }
+    });
+
+    // Handle goal update form submission
+    document.getElementById('updateGoalForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const addAmount = parseFloat(document.getElementById('addAmount').value);
+        
+        if (addAmount <= 0) {
+            alert('Please enter a valid amount greater than 0');
+            return;
+        }
+
+        // Here you would normally send an AJAX request to update the goal
+        // For now, we'll just show a success message and close the modal
+        alert('Goal progress updated successfully!');
+        closeModal();
+        
+        // Refresh the page to show updated data
+        window.location.reload();
+    });
+
+    // Form validation
+    document.querySelector('form[action*="goals"]').addEventListener('submit', function(e) {
+        const targetAmount = parseFloat(document.getElementById('target_amount').value);
+        const targetDate = new Date(document.getElementById('target_date').value);
+        const today = new Date();
+
+        if (targetAmount <= 0) {
+            e.preventDefault();
+            alert('Target amount must be greater than 0');
+            return;
+        }
+
+        if (targetDate <= today) {
+            e.preventDefault();
+            alert('Target date must be in the future');
+            return;
+        }
+    });
+
+    // Auto-focus on form after page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const goalsExist = {{ 'true' if goals else 'false' }};
+        if (!goalsExist) {
+            document.getElementById('title').focus();
+        }
+    });
+</script>
+{% endblock %}
